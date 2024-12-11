@@ -8,6 +8,13 @@ int val1=0, val2=0, val3=0;
 int pot= 33;
 int lecture_pot;
 
+
+int vitesse;
+int moteur = 27;
+int pwmChannel = 0;
+int frequence = 1000;
+int resolution = 8;
+
 void setup() {
 
   // Initialise la liaison avec le terminal
@@ -15,10 +22,14 @@ void setup() {
   pinMode(BP1,INPUT_PULLUP);
   pinMode(BP2,INPUT_PULLUP);
   pinMode(BP3,INPUT_PULLUP);
+  pinMode(moteur, OUTPUT);
 
   // Initialise l'écran LCD
   Wire1.setPins(15, 5);
   lcd.begin(16, 2, LCD_5x8DOTS, Wire1);
+
+  ledcSetup(pwmChannel, frequence, resolution);
+  ledcAttachPin(moteur, pwmChannel);
 
 }
 
@@ -34,4 +45,7 @@ lcd.setCursor(0,0);
 lcd.printf("pot %d           ",lecture_pot);
 delay(1000);
 
+vitesse = analogRead(pot)/4;
+
+ledcWrite(pwmChannel, vitesse);
 }
