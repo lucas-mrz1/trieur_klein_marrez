@@ -1,19 +1,26 @@
 #include <Arduino.h>
+#include <ESP32Encoder.h>
 #include "rgb_lcd.h"
 
+#define CLK 23 // CLK ENCODER 
+#define DT 19 // DT ENCODER 
+
+ESP32Encoder encoder;
 rgb_lcd lcd;
-int i = 0;
+
+int i = 0, e=0;
 int BP1 = 0, BP2 = 2, BP3 = 12;
 int val1=0, val2=0, val3=0;
-int pot= 33;
-int lecture_pot;
+int pot= 33, lecture_pot;
 
+int phase = 26;
+int encodeurA= 23, encodeurB= 19;
 
-int vitesse;
-int moteur = 27;
-int pwmChannel = 0;
+int vitesse, moteur = 27, pwmChannel = 0;
 int frequence = 25000;
 int resolution = 11;
+
+
 
 void setup() {
 
@@ -23,6 +30,7 @@ void setup() {
   pinMode(BP2,INPUT_PULLUP);
   pinMode(BP3,INPUT_PULLUP);
   pinMode(moteur, OUTPUT);
+  pinMode(phase, OUTPUT);
 
   // Initialise l'écran LCD
   Wire1.setPins(15, 5);
@@ -32,6 +40,8 @@ void setup() {
   ledcSetup(pwmChannel, frequence, resolution);
   ledcAttachPin(moteur, pwmChannel);
 
+  encoder.attachHalfQuad ( DT, CLK );
+  encoder.setCount ( 0 );
 }
 
 void loop() 
@@ -43,12 +53,25 @@ val3 = digitalRead(BP3);
 lecture_pot=analogRead(pot);
 
 // Affichage
-Serial.printf("bp1 %d    bp2 %d     bp3 %d     pot %d\n",val1, val2, val3, lecture_pot);
+Serial.printf("bp1 %d    bp2 %d     bp3 %d     pot %d\n encodeur =",val1, val2, val3, lecture_pot, e);
 lcd.setCursor(0,0); 
 lcd.printf("pot %d           ",lecture_pot);
+
 delay(1000);
 
 // controle moteur
-vitesse =  analogRead(pot);
+if (val1 == HIGH)
+  {
+    digitalWrite(phase, HIGH);
+  }
+else
+  {
+    digitalWrite(phase, LOW);
+  } 
+vitesse =  analogRead(pot)/2;
 ledcWrite(pwmChannel, vitesse);
+
+// encodeur
+long newPosition = encoder.getCount();
+Serial.println(newPosition);
 }
