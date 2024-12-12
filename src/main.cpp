@@ -12,8 +12,8 @@ int lecture_pot;
 int vitesse;
 int moteur = 27;
 int pwmChannel = 0;
-int frequence = 1000;
-int resolution = 8;
+int frequence = 25000;
+int resolution = 11;
 
 void setup() {
 
@@ -28,6 +28,7 @@ void setup() {
   Wire1.setPins(15, 5);
   lcd.begin(16, 2, LCD_5x8DOTS, Wire1);
 
+  // Init moteur
   ledcSetup(pwmChannel, frequence, resolution);
   ledcAttachPin(moteur, pwmChannel);
 
@@ -35,17 +36,19 @@ void setup() {
 
 void loop() 
 {
+  // Utilisation boutton + pot
 val1 = digitalRead(BP1);
 val2 = digitalRead(BP2);
 val3 = digitalRead(BP3);
 lecture_pot=analogRead(pot);
-Serial.printf("bp1 %d    bp2 %d     bp3 %d     pot %d\n",val1, val2, val3, lecture_pot);
 
+// Affichage
+Serial.printf("bp1 %d    bp2 %d     bp3 %d     pot %d\n",val1, val2, val3, lecture_pot);
 lcd.setCursor(0,0); 
 lcd.printf("pot %d           ",lecture_pot);
 delay(1000);
 
-vitesse = analogRead(pot)/4;
-
+// controle moteur
+vitesse =  analogRead(pot);
 ledcWrite(pwmChannel, vitesse);
 }
