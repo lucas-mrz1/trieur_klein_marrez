@@ -8,7 +8,7 @@
 ESP32Encoder encoder;
 rgb_lcd lcd;
 
-int i = 0, e=0;
+int i = 0, e;
 int BP1 = 0, BP2 = 2, BP3 = 12;
 int val1=0, val2=0, val3=0;
 int pot= 33, lecture_pot;
@@ -40,6 +40,7 @@ void setup() {
   ledcSetup(pwmChannel, frequence, resolution);
   ledcAttachPin(moteur, pwmChannel);
 
+  // Init encoder
   encoder.attachHalfQuad ( DT, CLK );
   encoder.setCount ( 0 );
 }
@@ -53,14 +54,14 @@ val3 = digitalRead(BP3);
 lecture_pot=analogRead(pot);
 
 // Affichage
-Serial.printf("bp1 %d    bp2 %d     bp3 %d     pot %d\n encodeur =",val1, val2, val3, lecture_pot, e);
+//Serial.printf("bp1 %d    bp2 %d     bp3 %d     pot %d\n",val1, val2, val3, lecture_pot);
 lcd.setCursor(0,0); 
 lcd.printf("pot %d           ",lecture_pot);
-
-delay(1000);
+lcd.setCursor(0,1); 
+lcd.printf("coder %d        ",e);
 
 // controle moteur
-if (val1 == HIGH)
+if (val1 == LOW)
   {
     digitalWrite(phase, HIGH);
   }
@@ -73,5 +74,5 @@ ledcWrite(pwmChannel, vitesse);
 
 // encodeur
 long newPosition = encoder.getCount();
-Serial.println(newPosition);
+e = newPosition;
 }
