@@ -1,12 +1,17 @@
 #include <Arduino.h>
 #include <ESP32Encoder.h>
 #include "rgb_lcd.h"
+#include <Adafruit_I2CDevice.h>
+#include <SPI.h>
+#include <Wire.h>
 
 #define CLK 23 // CLK ENCODER 
 #define DT 19 // DT ENCODER 
 
+//Adafruit_TCS34725 tcs = Adafruit_TCS34725();
 ESP32Encoder encoder;
 rgb_lcd lcd;
+
 
 int i = 0, e;
 int BP1 = 0, BP2 = 2, BP3 = 12;
@@ -25,7 +30,7 @@ int resolution = 11;
 void setup() {
 
   // Initialise la liaison avec le terminal
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(BP1,INPUT_PULLUP);
   pinMode(BP2,INPUT_PULLUP);
   pinMode(BP3,INPUT_PULLUP);
@@ -43,6 +48,8 @@ void setup() {
   // Init encoder
   encoder.attachHalfQuad ( DT, CLK );
   encoder.setCount ( 0 );
+
+  //Init capteur couleur
 }
 
 void loop() 
@@ -75,4 +82,5 @@ ledcWrite(pwmChannel, vitesse);
 // encodeur
 long newPosition = encoder.getCount();
 e = newPosition;
+
 }
