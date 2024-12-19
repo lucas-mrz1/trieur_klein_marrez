@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <Wire.h>
 
+
 #define CLK 23 // CLK ENCODER
 #define DT 19  // DT ENCODER
 
@@ -14,20 +15,28 @@ rgb_lcd lcd;
 
 int i = 0;
 int v1, v2, vts;
-int BP1 = 0, BP2 = 2, BP3 = 12;
+int BP1 = 0, BP2 = 12, BP3 = 2;
 int val1 = 0, val2 = 0, val3 = 0;
-int pot = 33, lecture_pot;
+int pot = 33, lecture_pot, newpot=0;
+int vbp2;
 
 int phase = 26;
 int encodeurA = 23, encodeurB = 19, vitesse;
 
-int moteur = 27, pwmChannel = 0;
+int moteur = 27, pwmChannel1 = 0, pwmChannel2 = 1;
 
 int frequence = 25000;
+int frequence2 = 50;
 int resolution = 11;
+int resolution2 = 16;
 int consigne;
+int servo  = 13;
 
-// asservissement
+
+//accélérometre
+
+
+// fonction asservissement
 void vTaskPeriodic(void *pvParameters)
 {
   //déclaration variables
@@ -40,42 +49,42 @@ void vTaskPeriodic(void *pvParameters)
   xLastWakeTime = xTaskGetTickCount();
   while (1)
   {
-    // calcul vitesse rotation
-    int newPosition = encoder.getCount();
-    vts = oldPosition - newPosition;
-    oldPosition = newPosition;
+    // // calcul vitesse rotation
+    // int newPosition = encoder.getCount();
+    // vts = oldPosition - newPosition;
+    // oldPosition = newPosition;
 
-    //calcul de l'erreur+ erreur intégrale
-    Erreurtot = Erreurtot + erreur;
-    erreur = consigne - vts;
-    vitesse = k * erreur + Ki * Erreurtot;
+    // //calcul de l'erreur+ erreur intégrale
+    // Erreurtot = Erreurtot + erreur;
+    // erreur = consigne - vts;
+    // vitesse = k * erreur + Ki * Erreurtot;
 
-    //bride de l'erreur intégrale
-    if(Erreurtot>30)
-      Erreurtot=Erreurtot-10;
+    // //bride de l'erreur intégrale
+    // if(Erreurtot>30)
+    //   Erreurtot=Erreurtot-10;
 
-    //si vitesse augmente
-    if (vitesse > 0)
-    {
-      if (vitesse > 2047)
-        vitesse = 2047;
-      digitalWrite(phase, 1);
-      ledcWrite(pwmChannel, vitesse);
-    }
+    // //si vitesse augmente
+    // if (vitesse > 0)
+    // {
+    //   if (vitesse > 2047)
+    //     vitesse = 2047;
+    //   digitalWrite(phase, 1);
+    //   ledcWrite(pwmChannel1, vitesse);
+    // }
 
-    //si vitesse diminue
-    if (vitesse < 0)
-    {
-      if (vitesse < -2047)
-        vitesse = -2047;
-      digitalWrite(phase, 0);
-      ledcWrite(pwmChannel, -vitesse);
-    }
+    // //si vitesse diminue
+    // if (vitesse < 0)
+    // {
+    //   if (vitesse < -2047)
+    //     vitesse = -2047;
+    //   digitalWrite(phase, 0);
+    //   ledcWrite(pwmChannel1, -vitesse);
+    // }
 
-    // Endort la tâche pendant le temps restant par rapport au réveil,
-    // ici 100ms, donc la tâche s'effectue ici toutes les 100ms.
-    // xLastWakeTime sera mis à jour avec le nombre de ticks au prochain
-    // réveil de la tâche.
+    // // Endort la tâche pendant le temps restant par rapport au réveil,
+    // // ici 100ms, donc la tâche s'effectue ici toutes les 100ms.
+    // // xLastWakeTime sera mis à jour avec le nombre de ticks au prochain
+    // // réveil de la tâche.
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
   }
 }
@@ -95,8 +104,12 @@ void setup()
   lcd.begin(16, 2, LCD_5x8DOTS, Wire1);
 
   // Init moteur
-  ledcSetup(pwmChannel, frequence, resolution);
-  ledcAttachPin(moteur, pwmChannel);
+  ledcSetup(pwmChannel1, frequence, resolution);
+  ledcAttachPin(moteur, pwmChannel1);
+
+  // Init servomoteur
+  ledcSetup(pwmChannel2, frequence2, resolution2);
+  ledcAttachPin(servo, pwmChannel2);
 
   // Init encoder
   encoder.attachHalfQuad(DT, CLK);
@@ -119,6 +132,11 @@ void setup()
 
   // Création de la tâche périodique
   xTaskCreate(vTaskPeriodic, "vTaskPeriodic", 10000, NULL, 2, NULL);
+
+  //Servo
+
+  //Init acélérometre
+
 }
 
 void loop()
@@ -127,10 +145,11 @@ void loop()
   val1 = digitalRead(BP1);
   val2 = digitalRead(BP2);
   val3 = digitalRead(BP3);
-  consigne = analogRead(pot) / 150;
+  consigne = analogRead(pot);
+  newpot = map (consigne, 0, 4095, 3850, 4915);
 
   lcd.setCursor(0, 0);
-  lcd.printf("pot %d           ", consigne);
+  lcd.printf("newpot %3d           ", newpot);
 
   // capteur couleur
   uint16_t r, g, b, c, colorTemp, lux;
@@ -161,4 +180,9 @@ void loop()
     Serial.println(" ");
   */
  
+ //servomoteur
+
+ledcWrite(pwmChannel2, newpot);
+ 
+
 }
