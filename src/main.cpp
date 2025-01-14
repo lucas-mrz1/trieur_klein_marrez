@@ -1,4 +1,4 @@
-git config --global user.email#include <Arduino.h>
+#include <Arduino.h>
 #include <ESP32Encoder.h>
 #include "rgb_lcd.h"
 #include "Adafruit_TCS34725.h"
@@ -6,6 +6,7 @@ git config --global user.email#include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
 #include "MFRC522_I2C.h"
+#include "CAN.h"
 
 #define CLK 23 // CLK ENCODER
 #define DT 19  // DT ENCODER
@@ -105,7 +106,16 @@ void vTaskPeriodic(void *pvParameters)
 
 void setup()
 {
+
   Serial.begin(115200);
+
+  Serial.println("CAN Sender");
+
+  CAN.setPins(4, 18);
+  if (!CAN.begin(500000)) {
+    Serial.println("Starting CAN failed!");
+    while (1);
+  }
 
   pinMode(BP1, INPUT_PULLUP);
   pinMode(BP2, INPUT_PULLUP);
@@ -152,19 +162,19 @@ void setup()
 
 void loop()
 {
-  if (!mfrc522.PICC_IsNewCardPresent() ||
-      !mfrc522.PICC_ReadCardSerial())
-  {
-    delay(200);
-    return;
-  }
+  // if (!mfrc522.PICC_IsNewCardPresent() ||
+  //     !mfrc522.PICC_ReadCardSerial())
+  // {
+  //   delay(200);
+  //   return;
+  // }
 
-  for (byte i = 0; i < mfrc522.uid.size; i++)
-  {
-    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    Serial.print(mfrc522.uid.uidByte[i], HEX);
-  }
-  Serial.println("");
+  // for (byte i = 0; i < mfrc522.uid.size; i++)
+  // {
+  //   Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+  //   Serial.print(mfrc522.uid.uidByte[i], HEX);
+  // }
+  // Serial.println("");
 
   // position
   tour = encoder.getCount() / 410;
@@ -240,4 +250,75 @@ void loop()
     etat = 0;
     break;
   }
+
+
+  // transmission CAN ordinateur vers ESP32
+  // send packet: id is 11 bits, packet can contain up to 8 bytes of data
+  Serial.print("Sending packet ... ");
+
+  CAN.beginPacket(0x12);
+  CAN.write('h');
+  CAN.write('e');
+  CAN.write('l');
+  CAN.write('l');
+  CAN.write('o');
+  CAN.endPacket();
+
+  Serial.println("done");
+
+  delay(1000);
+
+  // send extended packet: id is 29 bits, packet can contain up to 8 bytes of data
+  Serial.print("Sending extended packet ... ");
+
+  CAN.beginExtendedPacket(0xabcdef);
+  CAN.write('w');
+  CAN.write('o');
+  CAN.write('r');
+  CAN.write('l');
+  CAN.write('d');
+  CAN.endPacket();
+
+  Serial.println("done");
+
+  delay(1000);
+
+
+  // transmission CAN ESP32 vers ordinateur
+  int packetSize = CAN.parsePacket();
+
+  if (packetSize) {
+    // received a packet
+    Serial.print("Received ");
+
+    if (CAN.packetExtended()) {
+      Serial.print("extended ");
+    }
+
+    if (CAN.packetRtr()) {
+      // Remote transmission request, packet contains no data
+      Serial.print("RTR ");
+    }
+
+    Serial.print("packet with id 0x");
+    Serial.print(CAN.packetId(), HEX);
+
+    if (CAN.packetRtr()) {
+      Serial.print(" and requested length ");
+      Serial.println(CAN.packetDlc());
+    } else {
+      Serial.print(" and length ");
+      Serial.println(packetSize);
+
+      // only print packet data for non-RTR packets
+      while (CAN.available()) {
+        Serial.print((char)CAN.read());
+      }
+      Serial.println();
+    }
+
+    Serial.println();
+  }
+
+
 }
