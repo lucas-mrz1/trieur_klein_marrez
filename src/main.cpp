@@ -1,10 +1,11 @@
-#include <Arduino.h>
+git config --global user.email#include <Arduino.h>
 #include <ESP32Encoder.h>
 #include "rgb_lcd.h"
 #include "Adafruit_TCS34725.h"
 #include <SPI.h>
 #include <Wire.h>
-
+#include <SPI.h>
+#include "MFRC522_I2C.h"
 
 #define CLK 23 // CLK ENCODER
 #define DT 19  // DT ENCODER
@@ -13,11 +14,13 @@ Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_614MS, TCS347
 ESP32Encoder encoder;
 rgb_lcd lcd;
 
-int i = 0, tour=0, bozpos = 0, csg=0;
+MFRC522 mfrc522(0x28);
+
+int i = 0, tour = 0, bozpos = 0, csg = 0;
 int v1, v2, vts;
 int BP1 = 0, BP2 = 12, BP3 = 2;
 int val1 = 0, val2 = 0, val3 = 0;
-int pot = 33, lecture_pot, newpot=0;
+int pot = 33, lecture_pot, newpot = 0;
 int vbp2;
 
 int phase = 26;
@@ -28,33 +31,33 @@ int moteur = 27, pwmChannel1 = 0, pwmChannel2 = 2;
 int frequence = 25000, frequence2 = 50;
 int resolution = 11, resolution2 = 16;
 int consigne;
-int servo  = 13;
+int servo = 13;
 int posi = 0;
 char etat = 0;
 
-//position
-void position ( long pos)
+// position
+void position(long pos)
 {
-  if((bozpos<((pos-1)*103+75))&&(bozpos>((pos-1)*103+65)))
-  csg =0;
+  if ((bozpos < ((pos - 1) * 103 + 75)) && (bozpos > ((pos - 1) * 103 + 65)))
+    csg = 0;
   else
   {
-    if(bozpos<((pos-1)*103+65))
-    csg = 1;
-    if(bozpos>((pos-1)*103+75))
-    csg = -1;
+    if (bozpos < ((pos - 1) * 103 + 65))
+      csg = 1;
+    if (bozpos > ((pos - 1) * 103 + 75))
+      csg = -1;
   }
 }
 
 // fonction asservissement
 void vTaskPeriodic(void *pvParameters)
 {
-  //déclaration variables
+  // déclaration variables
   int oldPosition = 0;
   int erreur, Erreurtot;
-  float k = 100, Ki= 50;
+  float k = 100, Ki = 50;
   TickType_t xLastWakeTime;
-  
+
   // Lecture du nombre de ticks quand la tâche commence
   xLastWakeTime = xTaskGetTickCount();
   while (1)
@@ -65,16 +68,16 @@ void vTaskPeriodic(void *pvParameters)
     vts = oldPosition - newPosition;
     oldPosition = newPosition;
 
-    //calcul de l'erreur+ erreur intégrale
+    // calcul de l'erreur+ erreur intégrale
     Erreurtot = Erreurtot + erreur;
     erreur = consigne - vts;
     vitesse = k * erreur + Ki * Erreurtot;
 
-    //bride de l'erreur intégrale
-    if(Erreurtot>30)
-      Erreurtot=Erreurtot-10;
+    // bride de l'erreur intégrale
+    if (Erreurtot > 30)
+      Erreurtot = Erreurtot - 10;
 
-    //si vitesse augmente
+    // si vitesse augmente
     if (vitesse > 0)
     {
       if (vitesse > 2047)
@@ -83,7 +86,7 @@ void vTaskPeriodic(void *pvParameters)
       ledcWrite(pwmChannel1, vitesse);
     }
 
-    //si vitesse diminue
+    // si vitesse diminue
     if (vitesse < 0)
     {
       if (vitesse < -2047)
@@ -102,8 +105,8 @@ void vTaskPeriodic(void *pvParameters)
 
 void setup()
 {
-  // Initialise la liaison avec le terminal
   Serial.begin(115200);
+
   pinMode(BP1, INPUT_PULLUP);
   pinMode(BP2, INPUT_PULLUP);
   pinMode(BP3, INPUT_PULLUP);
@@ -138,6 +141,8 @@ void setup()
       ;
   }
 
+  mfrc522.PCD_Init();
+
   // Init asservissement
   Serial.printf("Initialisations\n");
 
@@ -147,15 +152,29 @@ void setup()
 
 void loop()
 {
-  //position
-  tour = encoder.getCount()/410;
-  bozpos= encoder.getCount()- 410 * tour;
+  if (!mfrc522.PICC_IsNewCardPresent() ||
+      !mfrc522.PICC_ReadCardSerial())
+  {
+    delay(200);
+    return;
+  }
+
+  for (byte i = 0; i < mfrc522.uid.size; i++)
+  {
+    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+    Serial.print(mfrc522.uid.uidByte[i], HEX);
+  }
+  Serial.println("");
+
+  // position
+  tour = encoder.getCount() / 410;
+  bozpos = encoder.getCount() - 410 * tour;
   // Utilisation boutton + pot
   val1 = digitalRead(BP1);
   val2 = digitalRead(BP2);
   val3 = digitalRead(BP3);
-  //consigne = analogRead(pot)/150;
-  //newpot = map (consigne, 0, 4095, 3000, 7000);
+  // consigne = analogRead(pot)/150;
+  // newpot = map (consigne, 0, 4095, 3000, 7000);
 
   lcd.setCursor(0, 0);
   lcd.printf("pot %3d           ", consigne);
@@ -167,57 +186,58 @@ void loop()
   // colorTemp = tcs.calculateColorTemperature(r, g, b);
   colorTemp = tcs.calculateColorTemperature_dn40(r, g, b, c);
   lux = tcs.calculateLux(r, g, b);
-  
-    Serial.print("Color Temp: ");
-    Serial.print(colorTemp, DEC);
-    Serial.print(" K - ");
-    Serial.print("Lux: ");
-    Serial.print(lux, DEC);
-    Serial.print(" - ");
-    Serial.print("R: ");
-    Serial.print(r, DEC);
-    Serial.print(" ");
-    Serial.print("G: ");
-    Serial.print(g, DEC);
-    Serial.print(" ");
-    Serial.print("B: ");
-    Serial.print(b, DEC);
-    Serial.print(" ");
-    Serial.print("C: ");
-    Serial.print(c, DEC);
-    Serial.print(" ");
-    Serial.println(" ");
- 
- //servomoteur
-// if(val1 == LOW)
-//   {
-// ledcWrite(pwmChannel2, 5800);
-//   }
-// if(val3 == LOW)
-//   {
-// ledcWrite(pwmChannel2, 4769);
-//   }
-//   if(val2== LOW)
-//   {
-// ledcWrite(pwmChannel2, 3826);
-//   }
 
-//
-switch(etat)
-{
-case 0: 
-ledcWrite(pwmChannel2, 4769);
-  consigne = 1;
-  if (lux >= 200) etat = 2;
-  break;
+  Serial.print("Color Temp: ");
+  Serial.print(colorTemp, DEC);
+  Serial.print(" K - ");
+  Serial.print("Lux: ");
+  Serial.print(lux, DEC);
+  Serial.print(" - ");
+  Serial.print("R: ");
+  Serial.print(r, DEC);
+  Serial.print(" ");
+  Serial.print("G: ");
+  Serial.print(g, DEC);
+  Serial.print(" ");
+  Serial.print("B: ");
+  Serial.print(b, DEC);
+  Serial.print(" ");
+  Serial.print("C: ");
+  Serial.print(c, DEC);
+  Serial.print(" ");
+  Serial.println(" ");
 
-case 2:
-delay(1500);
-consigne = 0;
-delay(500);
-ledcWrite(pwmChannel2, 3826);
-delay (500);
-etat = 0;
-break;
-}
+  // servomoteur
+  // if(val1 == LOW)
+  //   {
+  // ledcWrite(pwmChannel2, 5800);
+  //   }
+  // if(val3 == LOW)
+  //   {
+  // ledcWrite(pwmChannel2, 4769);
+  //   }
+  //   if(val2== LOW)
+  //   {
+  // ledcWrite(pwmChannel2, 3826);
+  //   }
+
+  //
+  switch (etat)
+  {
+  case 0:
+    ledcWrite(pwmChannel2, 4769);
+    consigne = 1;
+    if (lux >= 200)
+      etat = 2;
+    break;
+
+  case 2:
+    delay(1500);
+    consigne = 0;
+    delay(500);
+    ledcWrite(pwmChannel2, 3826);
+    delay(500);
+    etat = 0;
+    break;
+  }
 }
